@@ -35,7 +35,11 @@ type Client struct {
 	// when the client changes states.
 	StateChange func(newState string)
 
-	Discover func(device *DiscoveredDevice, final bool)
+	Discover func(device *DiscoveredDevice)
+
+	Advertisement func(device *DiscoveredDevice)
+
+	Rssi func(address string, rssi int8)
 
 	discoveries map[string]*DiscoveredDevice
 
@@ -61,11 +65,21 @@ type DeviceAdvertisement struct {
 	ManufacturerData []byte
 	ServiceData      []ServiceData
 	ServiceUuids     map[string]bool
+	Flags            DeviceAdvertisementFlags
 }
 
 type ServiceData struct {
   Uuid string
 	Data []byte
+}
+
+// Bluetooth Core Specification Supplement (CSS) 0.4 - 1.3.1 Flags Description
+type DeviceAdvertisementFlags struct {
+	LimitedDiscoverableMode bool
+	GeneralDiscoverableMode bool
+	BREDRNotSupported bool
+	SimulataneousLEAndBREDRToSameDeviceCapableController bool
+	SimulataneousLEAndBREDRToSameDeviceCapableHost bool
 }
 
 func (s *Client) Start() error {
@@ -103,7 +117,7 @@ func (s *Client) Start() error {
 			// No need to check s.quit here; if the users closes the server,
 			// hci will get killed, which'll cause an error to be returned here.
 			event, data, err := s.hci.event()
-			log.Printf("event: %s data: %s err:%s", event, data, err)
+			//log.Printf("event: %s data: %s err:%s", event, data, err)
 			if err != nil {
 				break
 			}
@@ -138,7 +152,7 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 
 	fields := strings.Split(data, ",");
 
-	log.Printf("Advertising event! : %q", fields)
+	//log.Printf("Advertising event! : %q", fields)
 
 	address := fields[0]
 	addressType := fields[1]
@@ -149,6 +163,10 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 	rssi, err := strconv.ParseInt(fields[3], 10, 8);
 	if err != nil {
 		return fmt.Errorf("Failed to parse rssi: %s", fields[3])
+	}
+
+	if c.Rssi != nil {
+		c.Rssi(address, int8(rssi))
 	}
 
 	if c.discoveries == nil {
@@ -177,14 +195,12 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 
 	i := 0
 
-	log.Printf("eir length: %d", len(eir))
-
 	for (i+1) < len(eir) {
 
 		length := int(eir[i])
 		dataType := int(eir[i+1]) // https://www.bluetooth.org/en-us/specification/assigned-numbers/generic-access-profile
 
-		log.Printf("Reading eir data length:%d type:%d from pos:%d", length, dataType, i)
+		//log.Printf("Reading eir data length:%d type:%d from pos:%d", length, dataType, i)
 
 		if (i + length + 1) > len(eir) {
       log.Printf("Invalid EIR data, out of range of buffer length");
@@ -192,9 +208,6 @@ func (c *Client) handleAdvertisingEvent(data string) error {
     }
 
 		payload := eir[i+2:i+2+length-1]
-
-		log.Printf("Payload dump:")
-		spew.Dump(payload)
 
 		switch dataType {
 			case 0x01: // Flags
@@ -204,16 +217,30 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 				  Vol. 3, Part C, sections 11.1.3 and 18.1 (v4.0)
 				  Core Specification Supplement, Part A, section 1.3
 				*/
-				log.Printf("EIR Flags: %s", strconv.FormatInt(int64(payload[0]), 2))
+				flags := DeviceAdvertisementFlags{}
+
+				if isFlagSet(0, payload[0]) { flags.LimitedDiscoverableMode = true}
+				if isFlagSet(1, payload[0]) { flags.GeneralDiscoverableMode = true}
+				if isFlagSet(2, payload[0]) { flags.BREDRNotSupported = true}
+				if isFlagSet(3, payload[0]) { flags.SimulataneousLEAndBREDRToSameDeviceCapableController = true}
+				if isFlagSet(4, payload[0]) { flags.SimulataneousLEAndBREDRToSameDeviceCapableHost = true}
+
+				advertisement.Flags = flags
 
 			case 0x02, // Incomplete List of 16-bit Service Class UUID
 					 0x03, // Complete List of 16-bit Service Class UUIDs
+					 0x04, // Complete List of 32-bit Service Class UUIDs
+					 0x05, // Complete List of 32-bit Service Class UUIDs
            0x06, // Incomplete List of 128-bit Service Class UUIDs
            0x07: // Complete List of 128-bit Service Class UUIDs
 
-				uuidLength := 2; // 16-bit
-				if dataType > 0x03 {
+				var uuidLength int // 16-bit
+				if dataType > 0x05 {
 					uuidLength = 16 // 128-bit
+				} else if dataType > 0x03 {
+					uuidLength = 4 // 32-bit
+				} else {
+					uuidLength = 2 // 32-bit
 				}
 
 				for j := 0; j < len(payload); j += uuidLength {
@@ -235,10 +262,12 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 				})
 
 			case 0xff: // Manufacturer Specific Data
-        advertisement.ManufacturerData = payload
+				advertisement.ManufacturerData = payload
 
 			default:
 				log.Printf("Unhandled eir data type: 0x%x", dataType)
+				log.Printf("Payload dump:")
+				spew.Dump(payload)
 		}
 
 		i += (length + 1)
@@ -246,11 +275,19 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 
 	device.discoveryCount += 1
 
-	if c.Discover != nil {
-		c.Discover(device, device.discoveryCount % 2 == 0)
+	if c.Advertisement != nil && device.discoveryCount % 2 == 0 {
+		c.Advertisement(device)
+	}
+
+	if c.Discover != nil && device.discoveryCount == 2 {
+		c.Discover(device)
 	}
 
 	return nil
+}
+
+func isFlagSet(pos uint8, b byte) bool {
+	return uint8(b)>>pos&1 > 0;
 }
 
 func (s *Client) StartDiscovery() error {

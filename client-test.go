@@ -7,7 +7,7 @@ import (
   "os"
   "os/signal"
   "github.com/ninjasphere/gatt"
-  "github.com/davecgh/go-spew/spew"
+  //"github.com/davecgh/go-spew/spew"
 )
 
 func main() {
@@ -16,9 +16,13 @@ func main() {
     StateChange: func(newState string) {
       log.Println("Client state change: ", newState)
     },
-    Discover: func(device *gatt.DiscoveredDevice, final bool) {
-      log.Printf("Discovered device final:%t", final)
+    /*Advertisement: func(device *gatt.DiscoveredDevice) {
+      log.Printf("Advertisement address:%s rssi:%d", device.Address, device.Rssi)
       spew.Dump(device);
+    },*/
+    Rssi: func(address string, rssi int8) {
+      log.Printf("Rssi update address:%s rssi:%d", address, rssi)
+      //spew.Dump(device);
     },
   }
 
