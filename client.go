@@ -8,7 +8,10 @@ import (
 	"strings"
 	"encoding/hex"
 	"strconv"
+	//"bytes"
 	"github.com/davecgh/go-spew/spew"
+	//"encoding/binary"
+	//"os"
 )
 
 
@@ -32,7 +35,9 @@ type Client struct {
 	// when the client changes states.
 	StateChange func(newState string)
 
-	discoveries map[string]*discoveredDevice
+	Discover func(device *DiscoveredDevice, final bool)
+
+	discoveries map[string]*DiscoveredDevice
 
 	hci   *hciClient
 	l2cap *l2cap
@@ -42,23 +47,25 @@ type Client struct {
 	err      error
 }
 
-type discoveredDevice struct {
-	address       string
-	addressType   string
-	rssi          int8
-	advertisement *deviceAdvertisement
+type DiscoveredDevice struct {
+	Address        string
+	AddressType    string
+	Rssi           int8
+	Advertisement  DeviceAdvertisement
+	discoveryCount int
 }
 
-type deviceAdvertisement struct {
-	localName        string
-	txPowerLevel     int8
-	manufacturerData []byte
-	serviceData      []*serviceData
+type DeviceAdvertisement struct {
+	LocalName        string
+	TxPowerLevel     int8
+	ManufacturerData []byte
+	ServiceData      []ServiceData
+	ServiceUuids     map[string]bool
 }
 
-type serviceData struct {
-  uuid string
-	data []byte
+type ServiceData struct {
+  Uuid string
+	Data []byte
 }
 
 func (s *Client) Start() error {
@@ -87,7 +94,9 @@ func (s *Client) Start() error {
 	// "unsupported". Waiting and then starting again fixes it.
 	// Figure out why, and handle it automatically.
 
-	s.StateChange(data)
+	if s.StateChange != nil {
+		s.StateChange(data)
+	}
 
 	go func() {
 		for {
@@ -144,33 +153,104 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 
 	if c.discoveries == nil {
 		log.Printf("Initialising discovered devices")
-		c.discoveries = make(map[string]*discoveredDevice)
+		c.discoveries = make(map[string]*DiscoveredDevice)
 	}
 
 	device := c.discoveries[address]
 
 	if device == nil {
 		log.Printf("Discovered a new device: %s", address)
-		device = &discoveredDevice{
-			address: address,
-			addressType: addressType,
+		device = &DiscoveredDevice{
+			Address: address,
+			AddressType: addressType,
+			Advertisement: DeviceAdvertisement{
+				ServiceUuids: make(map[string]bool),
+				ServiceData: make([]ServiceData, 0),
+			},
 		}
-		device.advertisement = &deviceAdvertisement{}
 		c.discoveries[address] = device
 	}
 
-	device.rssi = int8(rssi)
+	device.Rssi = int8(rssi)
 
-	//advertisement := device.advertisement;
+	advertisement := &device.Advertisement;
 
-	spew.Dump(device, address, addressType, eir, rssi);
+	i := 0
 
-//	log.Printf("Received hci data %s", data);
+	log.Printf("eir length: %d", len(eir))
 
+	for (i+1) < len(eir) {
 
+		length := int(eir[i])
+		dataType := int(eir[i+1]) // https://www.bluetooth.org/en-us/specification/assigned-numbers/generic-access-profile
+
+		log.Printf("Reading eir data length:%d type:%d from pos:%d", length, dataType, i)
+
+		if (i + length + 1) > len(eir) {
+      log.Printf("Invalid EIR data, out of range of buffer length");
+      break;
+    }
+
+		payload := eir[i+2:i+2+length-1]
+
+		log.Printf("Payload dump:")
+		spew.Dump(payload)
+
+		switch dataType {
+			case 0x01: // Flags
+				/*
+				  Bluetooth Core Specification:
+				  Vol. 3, Part C, section 8.1.3 (v2.1 + EDR, 3.0 + HS and 4.0)
+				  Vol. 3, Part C, sections 11.1.3 and 18.1 (v4.0)
+				  Core Specification Supplement, Part A, section 1.3
+				*/
+				log.Printf("EIR Flags: %s", strconv.FormatInt(int64(payload[0]), 2))
+
+			case 0x02, // Incomplete List of 16-bit Service Class UUID
+					 0x03, // Complete List of 16-bit Service Class UUIDs
+           0x06, // Incomplete List of 128-bit Service Class UUIDs
+           0x07: // Complete List of 128-bit Service Class UUIDs
+
+				uuidLength := 2; // 16-bit
+				if dataType > 0x03 {
+					uuidLength = 16 // 128-bit
+				}
+
+				for j := 0; j < len(payload); j += uuidLength {
+          serviceUuid := hex.EncodeToString(payload[j:j+uuidLength])
+					advertisement.ServiceUuids[serviceUuid] = true
+				}
+
+			case 0x08, // Shortened Local Name
+			     0x09: // Complete Local Name
+				advertisement.LocalName = string(payload)
+
+			case 0x0a: // Tx Power Level
+        advertisement.TxPowerLevel = int8(payload[0])
+
+			case 0x16: // Service Data, there can be multiple occurences
+				advertisement.ServiceData = append(advertisement.ServiceData, ServiceData{
+					Uuid: hex.EncodeToString(payload[0:2]),
+					Data: payload[3:],
+				})
+
+			case 0xff: // Manufacturer Specific Data
+        advertisement.ManufacturerData = payload
+
+			default:
+				log.Printf("Unhandled eir data type: 0x%x", dataType)
+		}
+
+		i += (length + 1)
+	}
+
+	device.discoveryCount += 1
+
+	if c.Discover != nil {
+		c.Discover(device, device.discoveryCount % 2 == 0)
+	}
 
 	return nil
-
 }
 
 func (s *Client) StartDiscovery() error {
