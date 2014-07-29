@@ -290,8 +290,8 @@ func isFlagSet(pos uint8, b byte) bool {
 	return uint8(b)>>pos&1 > 0;
 }
 
-func (s *Client) StartDiscovery() error {
-	return s.hci.startDiscovery()
+func (s *Client) StartScanning(allowDuplicates bool) error {
+	return s.hci.startScanning(allowDuplicates)
 }
 
 // Close stops the Client.

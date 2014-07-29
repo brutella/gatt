@@ -49,7 +49,17 @@ func (c *hciClient) event() (string, string, error) {
 		}
 	}
 }
-func (c *hciClient) startDiscovery() error {
+
+func (c *hciClient) startScanning(allowDuplicates bool) error {
 	log.Printf("hci-client Starting discovery")
-	return c.shim.Signal(syscall.SIGUSR2)
+	if (allowDuplicates) {
+		return c.shim.Signal(syscall.SIGUSR2)
+	} else {
+		return c.shim.Signal(syscall.SIGUSR1)
+	}
+}
+
+func (c *hciClient) stopScanning() error {
+	log.Printf("hci-client Starting discovery")
+	return c.shim.Signal(syscall.SIGHUP)
 }

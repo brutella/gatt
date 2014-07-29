@@ -32,9 +32,9 @@ func main() {
     log.Fatalf("Failed to start client: %s", err)
   }
 
-  err = client.StartDiscovery();
+  err = client.StartScanning(false);
   if (err != nil) {
-    log.Fatalf("Failed to start discovery: %s", err)
+    log.Fatalf("Failed to start scanning: %s", err)
   }
 
   c := make(chan os.Signal, 1)
