@@ -3,9 +3,9 @@ package gatt
 import (
 	"bufio"
 	"errors"
+	"log"
 	"strings"
 	"syscall"
-	"log"
 )
 
 func newHCIClient(s shim) *hciClient {
@@ -28,6 +28,7 @@ func (c *hciClient) event() (string, string, error) {
 		if err != nil {
 			return "", "", err
 		}
+		//log.Print("hci:" + s)
 
 		f := strings.Fields(s)
 		if f[0] != "log" && len(f) != 2 {
@@ -52,7 +53,7 @@ func (c *hciClient) event() (string, string, error) {
 
 func (c *hciClient) startScanning(allowDuplicates bool) error {
 	log.Printf("hci-client Starting discovery")
-	if (allowDuplicates) {
+	if allowDuplicates {
 		return c.shim.Signal(syscall.SIGUSR2)
 	} else {
 		return c.shim.Signal(syscall.SIGUSR1)

@@ -175,7 +175,7 @@ func (c *Client) Connect(address string, publicAddress bool) error {
 	go func() {
 		for {
 			notification := <-l2cap.notification
-			log.Print("Client got notification")
+			//log.Print("Client got notification")
 			if device.Notification != nil {
 				go device.Notification(notification)
 			}

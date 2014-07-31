@@ -109,12 +109,12 @@ const ATT_OP_HANDLE_IND = 0x1d
 
 func (c *l2capClient) eventloop() error {
 	for {
-		log.Printf("waiting for scanner data")
+		//log.Printf("waiting for scanner data")
 		c.scanner.Scan()
 		err := c.scanner.Err()
 		s := c.scanner.Text()
 
-		log.Printf("l2cap-client Received: %s", s)
+		//log.Printf("l2cap-client Received: %s", s)
 
 		if err != nil {
 			//return err
@@ -138,13 +138,13 @@ func (c *l2capClient) eventloop() error {
 			if err != nil {
 				log.Fatalf("Failed to parse l2cap-client hex data event: %s", s)
 			}
-			log.Println("Got data event")
+			//log.Println("Got data event")
 
 			commandId := data[0]
 
 			switch commandId {
 			case ATT_OP_HANDLE_NOTIFY, ATT_OP_HANDLE_IND:
-				log.Print("It's a Notification!")
+				//log.Print("It's a Notification!")
 
 				var handle uint16
 				err := binary.Read(bytes.NewReader(data[1:3]), binary.LittleEndian, &handle)
