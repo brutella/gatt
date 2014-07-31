@@ -339,11 +339,15 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 		case 0x0a: // Tx Power Level
 			advertisement.TxPowerLevel = int8(payload[0])
 
+		case 0x12: // Slave Connection Interval Range
+
 		case 0x16: // Service Data, there can be multiple occurences
 			advertisement.ServiceData = append(advertisement.ServiceData, ServiceData{
 				Uuid: hex.EncodeToString(payload[0:2]),
 				Data: payload[3:],
 			})
+
+		case 0x19: // Appearance
 
 		case 0xff: // Manufacturer Specific Data
 			advertisement.ManufacturerData = payload
