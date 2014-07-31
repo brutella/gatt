@@ -57,6 +57,7 @@ type DiscoveredDevice struct {
 	discoveryCount int
 	l2cap          *l2capClient
 	Connected      func()
+	Disconnected   func()
 	Notification   func(notification *Notification)
 }
 
@@ -169,6 +170,13 @@ func (c *Client) Connect(address string, publicAddress bool) error {
 			if device.Connected != nil {
 				go device.Connected()
 			}
+		}
+	}()
+
+	go func() {
+		<-l2cap.quit
+		if device.Disconnected != nil {
+			go device.Disconnected()
 		}
 	}()
 

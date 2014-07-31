@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -41,6 +40,7 @@ func newL2capClient(address string, publicAddress bool) (*l2capClient, error) {
 		commands:               make(chan *l2capClientCommand),
 		data:                   make(chan []byte),
 		connected:              make(chan struct{}),
+		quit:                   make(chan struct{}),
 		notification:           make(chan *Notification),
 		currentCommandComplete: make(chan bool),
 	}
@@ -83,13 +83,9 @@ type Notification struct {
 }
 
 func (c *l2capClient) close() error {
-	if !c.serving {
-		return errors.New("not serving")
-	}
 	//close the c shim to close server
 	err := c.shim.Signal(syscall.SIGINT)
 	c.shim.Wait()
-	c.serving = false
 
 	c.shim.Close()
 	if err != nil {
@@ -114,16 +110,13 @@ func (c *l2capClient) eventloop() error {
 		err := c.scanner.Err()
 		s := c.scanner.Text()
 
-		//log.Printf("l2cap-client Received: %s", s)
+		log.Printf("l2cap-client Received: %s", s)
 
 		if err != nil {
 			//return err
 		}
 
 		f := strings.Fields(s)
-		if f[0] != "log" && len(f) != 2 {
-			return errors.New("badly formed event: " + s)
-		}
 		switch f[0] {
 		case "bind":
 			log.Printf("Got bind event: %s", f[1])
@@ -132,7 +125,10 @@ func (c *l2capClient) eventloop() error {
 			if f[1] == "success" {
 				c.connected <- struct{}{}
 			}
-		//	c.discoverServices()
+		case "disconnect":
+			log.Printf("Got disconnect event")
+			c.close()
+			return nil
 		case "data":
 			data, err := hex.DecodeString(f[1])
 			if err != nil {
