@@ -110,7 +110,7 @@ func (c *l2capClient) eventloop() error {
 		err := c.scanner.Err()
 		s := c.scanner.Text()
 
-		log.Printf("l2cap-client Received: %s", s)
+		//log.Printf("l2cap-client Received: %s", s)
 
 		if err != nil {
 			//return err
