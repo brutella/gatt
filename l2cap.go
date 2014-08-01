@@ -89,11 +89,14 @@ func (c *l2cap) close() error {
 		return errors.New("not serving")
 	}
 	//close the c shim to close server
-	err := c.shim.Signal(syscall.SIGINT)
+	err := c.shim.Interrupt()
+	if err != nil {
+		println("error while closing l2cap", err)
+	}
 	c.shim.Wait()
 	c.serving = false
 	
-	//c.shim.Close()
+	c.shim.Close()
 	if err != nil {
 		println("Failed to send message to l2cap: ", err)
 	}
@@ -102,7 +105,6 @@ func (c *l2cap) close() error {
 	c.quit <- struct{}{}
 	close(c.quit)*/
 	//c.serving = false
-	
 	return nil
 }
 
