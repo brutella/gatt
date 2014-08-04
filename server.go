@@ -167,14 +167,14 @@ func (s *Server) AdvertiseAndServe() error {
 }
 
 // StopAdvertising stops the advertising of the peripheral
-func StopAdvertising() error {
+func (s *Server) StopAdvertising() error {
 	s.hci.stopAdvertising()
 	s.advertising = false
 	return nil
 }
 
 //DisconnectCentral disconnects the central
-func DisconnectCentral() error {
+func (s *Server) DisconnectCentral() error {
 	s.l2cap.disconnect()
 	return nil
 }

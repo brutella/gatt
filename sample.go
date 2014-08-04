@@ -55,5 +55,8 @@ func main() {
 			}()
 		})
 	fmt.Println("before run")
-	log.Fatal(srv.AdvertiseAndServe())
+	fmt.Println(srv.AdvertiseAndServe())
+	
+	for(1<2) {
+	}
 }
