@@ -10,7 +10,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/paypal/gatt"
+	"github.com/moogle19/gatt"
 )
 
 func main() {
@@ -54,6 +54,6 @@ func main() {
 				}
 			}()
 		})
-
+	fmt.Println("before run")
 	log.Fatal(srv.AdvertiseAndServe())
 }

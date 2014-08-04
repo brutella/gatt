@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 // A shim provides mediated access to BLE.
@@ -11,6 +12,7 @@ type shim interface {
 	io.ReadWriteCloser
 	Signal(os.Signal) error
 	Wait() error
+	Interrupt() error
 }
 
 // cshim provides access to BLE via an external c executable.
@@ -42,4 +44,5 @@ func newCShim(file string, arg ...string) (shim, error) {
 
 func (c *cshim) Wait() error                { return c.cmd.Wait() }
 func (c *cshim) Close() error               { return c.cmd.Process.Kill() }
+func (c *cshim) Interrupt() error	    { return c.cmd.Process.Signal(syscall.SIGINT) }
 func (c *cshim) Signal(sig os.Signal) error { return c.cmd.Process.Signal(sig) }

@@ -92,6 +92,7 @@ type Server struct {
 	quitonce sync.Once
 	quit     chan struct{}
 	err      error
+	advertising bool
 }
 
 // AddService registers a new Service with the server.
@@ -109,6 +110,7 @@ func (s *Server) AddService(u UUID) *Service {
 // See e.g. http://stackoverflow.com/questions/18906988.
 
 func (s *Server) startAdvertising() error {
+	s.advertising = true
 	return s.hci.advertiseEIR(s.AdvertisingPacket, s.ScanResponsePacket)
 }
 
@@ -119,26 +121,25 @@ var (
 )
 
 func serving() bool {
+	running := false
 	serverRunningMu.RLock()
-	defer serverRunningMu.RUnlock()
-	return serverRunning
+	running = serverRunning
+	serverRunningMu.RUnlock()
+	return running
 }
 
 func (s *Server) AdvertiseAndServe() error {
 	serverRunningMu.Lock()
-	//defer serverRunningMu.Unlock()
+	defer serverRunningMu.Unlock()
 	if serverRunning {
 		return errors.New("a server is already running")
 	}
-
 	if len(s.AdvertisingPacket) > MaxEIRPacketLength || len(s.ScanResponsePacket) > MaxEIRPacketLength {
 		return ErrEIRPacketTooLong
 	}
-
 	if s.ScanResponsePacket == nil && s.Name != "" {
 		s.ScanResponsePacket = nameScanResponsePacket(s.Name)
 	}
-
 	if s.AdvertisingPacket == nil {
 		uuids := make([]UUID, len(s.services))
 		for i, svc := range s.services {
@@ -146,11 +147,9 @@ func (s *Server) AdvertiseAndServe() error {
 		}
 		s.AdvertisingPacket, _ = serviceAdvertisingPacket(uuids)
 	}
-
 	if err := s.start(); err != nil {
 		return err
 	}
-
 	select {
 	case <-s.quit:
 		return s.err
@@ -158,15 +157,41 @@ func (s *Server) AdvertiseAndServe() error {
 	}
 
 	serverRunning = true
-	serverRunningMu.Unlock()
 	if err := s.l2cap.setServices(s.Name, s.services); err != nil {
 		return err
 	}
 	if err := s.startAdvertising(); err != nil {
 		return err
 	}
-
 	return s.l2cap.listenAndServe()
+}
+
+// StopAdvertising stops the advertising of the peripheral
+func StopAdvertising() error {
+	s.hci.stopAdvertising()
+	s.advertising = false
+	return nil
+}
+
+//DisconnectCentral disconnects the central
+func DisconnectCentral() error {
+	s.l2cap.disconnect()
+	return nil
+}
+
+// StopAdvertisingAndDisconnect stops the advertising of the peripheral and disconnects the central
+func (s *Server) StopAdvertisingAndDisconnect() error {
+	s.hci.stopAdvertising()
+	s.l2cap.disconnect()
+	s.advertising = false
+	return nil
+}
+
+// RestartAdvertising restarts the advertising of the peripheral
+func (s *Server) RestartAdvertising() error {
+	s.hci.restartAdvertising()
+	s.advertising = true
+	return nil
 }
 
 // cleanHCIDevice converts hci (user-provided)
@@ -246,8 +271,14 @@ func (s *Server) Close() error {
 	if !serving() {
 		return errors.New("not serving")
 	}
-	err := s.hci.Close()
-	s.hci.Wait()
+	err := s.hci.close()
+	if err != nil {
+		println("Close error: ", err)
+	}
+	errWait := s.hci.Wait()
+	if errWait != nil {
+		println("Wait error: ", errWait)
+	}
 	l2caperr := s.l2cap.close()
 	if err == nil {
 		err = l2caperr
@@ -344,13 +375,15 @@ func (s *Server) stopNotify(c *Characteristic) {
 }
 
 func (s *Server) connected(addr net.HardwareAddr) {
-	s.connmu.Lock()
-	s.conn = newConn(s, BDAddr{addr})
-	s.connmu.Unlock()
-	s.connmu.RLock()
-	defer s.connmu.RUnlock()
-	if s.Connect != nil {
-		s.Connect(s.conn)
+	if s.advertising == true {
+		s.connmu.Lock()
+		s.conn = newConn(s, BDAddr{addr})
+		s.connmu.Unlock()
+		s.connmu.RLock()
+		defer s.connmu.RUnlock()
+		if s.Connect != nil {
+			s.Connect(s.conn)
+		}
 	}
 }
 
@@ -372,8 +405,10 @@ func (s *Server) disconnected(hw net.HardwareAddr) {
 	s.connmu.Lock()
 	s.conn = nil
 	s.connmu.Unlock()
-	if err := s.startAdvertising(); err != nil {
-		s.close(err)
+	if s.advertising == true {
+		if err := s.startAdvertising(); err != nil {
+			s.close(err)
+		}
 	}
 }
 

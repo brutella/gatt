@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"syscall"
 )
 
 func newHCI(s shim) *hci {
@@ -78,6 +79,19 @@ func (c *hci) event() (string, error) {
 			return "", errors.New("unexpected event type: " + s)
 		}
 	}
+}
+
+func (c *hci) close() error {
+	c.readbuf = nil
+	return c.shim.Interrupt()
+}
+
+func (c *hci) stopAdvertising() error {
+	return c.shim.Signal(syscall.SIGHUP)
+}
+
+func (c *hci) restartAdvertising() error {
+	return c.shim.Signal(syscall.SIGUSR1)
 }
 
 // nameScanResponsePacket constructs a scan response packet with
