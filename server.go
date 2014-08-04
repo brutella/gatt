@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"encoding/binary"
+	"encoding/hex"
 )
 
 // MaxEIRPacketLength is the maximum allowed AdvertisingPacket
@@ -120,6 +122,7 @@ var (
 	serverRunning   bool
 )
 
+// serving checks if the server is currently running
 func serving() bool {
 	running := false
 	serverRunningMu.RLock()
@@ -128,6 +131,32 @@ func serving() bool {
 	return running
 }
 
+func (s *Server) AdvertiseiBeacon(uuid string, major uint16, minor uint16, measuredPower uint16) error {
+	uuidbyte, err := hex.DecodeString(uuid)
+	if err != nil {
+		return err
+	}
+	uuidlength := len(uuidbyte)
+	ibeaconData := make([]byte, uuidlength + 5)
+	i := 0
+	for index,element := range uuidbyte {
+		i = index
+		ibeaconData[i] = element
+	}
+	
+	
+	binary.LittleEndian.PutUint16(ibeaconData[i+1:], uint16(major))
+	binary.LittleEndian.PutUint16(ibeaconData[i+3:], uint16(minor))
+	temp := make([]byte, 2)
+	binary.LittleEndian.PutUint16(temp, measuredPower)
+	ibeaconData[i+5] = temp[0]	
+	s.start()
+	return s.hci.advertiseiBeacon(ibeaconData)
+}
+
+
+// AdvertiseAndServe initializes the server with the given name, services and characteristics
+// It also starts the server and advertises it
 func (s *Server) AdvertiseAndServe() error {
 	serverRunningMu.Lock()
 	defer serverRunningMu.Unlock()
@@ -233,7 +262,8 @@ func (s *Server) start() error {
 	// TODO: If you kill and restart the server quickly, you get event
 	// "unsupported". Waiting and then starting again fixes it.
 	// Figure out why, and handle it automatically.
-
+	//TODO: Check if this function really closes on quit, cause there is a memory leak if the server is stopped and started a huge amount of times
+	// which is probably cause by hci-ble and l2cap-ble not closing correctly respactivly go not freeing the memory used by the 2 shims
 	go func() {
 		for {
 			// No need to check s.quit here; if the users closes the server,
@@ -275,15 +305,18 @@ func (s *Server) Close() error {
 	if err != nil {
 		println("Close error: ", err)
 	}
-	errWait := s.hci.Wait()
+	/*errWait := s.hci.Wait()
 	if errWait != nil {
 		println("Wait error: ", errWait)
-	}
+	}*/
+	
 	l2caperr := s.l2cap.close()
 	if err == nil {
 		err = l2caperr
 	}
+	
 	s.close(err)
+	
 	serverRunningMu.Lock()
 	serverRunning = false
 	serverRunningMu.Unlock()
@@ -321,6 +354,7 @@ type Conn interface {
 	// MTU returns the current connection mtu.
 	MTU() int
 }
+
 
 func (s *Server) close(err error) {
 	s.quitonce.Do(func() {

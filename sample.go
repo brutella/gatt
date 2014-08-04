@@ -55,8 +55,7 @@ func main() {
 			}()
 		})
 	fmt.Println("before run")
-	fmt.Println(srv.AdvertiseAndServe())
-	
-	for(1<2) {
-	}
+	fmt.Println(srv.AdvertiseiBeacon("04B0F181B26F4D1EBED82AE238F55D3C", 1, 1, 50))
+	//fmt.Println(srv.AdvertiseAndServe())
+	time.Sleep(100 * time.Second)
 }

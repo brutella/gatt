@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"syscall"
+	"encoding/binary"
 )
 
 func newHCI(s shim) *hci {
@@ -53,9 +54,45 @@ func (c *hci) advertiseEIR(adv []byte, scan []byte) error {
 	case len(scan) > MaxEIRPacketLength:
 		return ErrEIRPacketTooLong
 	}
-	// log.Printf("HCI: Sending %x %x", adv, scan)
+	fmt.Println("HCI: Sending %x %x", adv, scan)
 	_, err := fmt.Fprintf(c.shim, "%x %x\n", adv, scan)
 	return err
+}
+
+func (c *hci) advertiseiBeacon(data []byte) error {
+	dataLen := uint32(len(data))
+	fmt.Println("DataLen : %d", dataLen)
+	manufacturerDataLen := 6 + dataLen
+	advertisementDataLen := 3 + manufacturerDataLen
+	scanDataLen := 1
+	
+	advertisementData := make([]byte, advertisementDataLen)
+	
+	advertisementData[0] = 2
+	advertisementData[1] = 0x01
+	advertisementData[2] = 0x05
+	
+	//advertisementData[3] = manufacturerDataLen - 1
+	temp := make([]byte, 2)
+	binary.LittleEndian.PutUint16(temp, uint16(manufacturerDataLen - 1))
+	advertisementData[3] = temp[0]
+	advertisementData[4] = 0xff
+	
+	advertisementData[5] = 0x4c
+	advertisementData[6] = 0x00
+	advertisementData[7] = 0x02
+	binary.LittleEndian.PutUint16(temp, uint16(dataLen))
+	advertisementData[8] = temp[0]
+	//advertisementData[8] = dataLen
+	
+	for index, element := range data {
+		advertisementData[9+index] = element
+	}
+	
+	scanData := make([]byte, scanDataLen)
+	//scanData := []byte{0x12}	
+
+	return c.advertiseEIR(advertisementData, scanData)
 }
 
 // event returns the next available HCI event, blocking if needed.
@@ -81,15 +118,29 @@ func (c *hci) event() (string, error) {
 	}
 }
 
+// close sends an interrupt to the hci process, which
+// should kill the process
 func (c *hci) close() error {
 	c.readbuf = nil
-	return c.shim.Interrupt()
+	err := c.shim.Interrupt()
+	if err != nil {
+		return err
+	}
+	waiterr := c.shim.Wait()
+	if waiterr != nil {
+		return waiterr
+	}
+	return c.shim.Close()
 }
 
+// stopAdvertising sotps the advertising of the peripheral
+// but doesn't disconnects the current central
 func (c *hci) stopAdvertising() error {
 	return c.shim.Signal(syscall.SIGHUP)
 }
 
+// restartAdvertising restarts the advertising of the peripheral
+// This work if advertising is disable or still running
 func (c *hci) restartAdvertising() error {
 	return c.shim.Signal(syscall.SIGUSR1)
 }

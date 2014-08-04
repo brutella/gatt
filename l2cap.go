@@ -91,21 +91,21 @@ func (c *l2cap) close() error {
 	//close the c shim to close server
 	err := c.shim.Interrupt()
 	if err != nil {
-		println("error while closing l2cap", err)
+		return err
 	}
-	c.shim.Wait()
+	waiterr := c.shim.Wait()
+	if waiterr != nil {
+		return waiterr
+	}
+	
 	c.serving = false
 	
-	c.shim.Close()
-	if err != nil {
-		println("Failed to send message to l2cap: ", err)
-	}
+	return c.shim.Close()
 	//call c.quit when close signal of shim arrives
 	/*
 	c.quit <- struct{}{}
 	close(c.quit)*/
 	//c.serving = false
-	return nil
 }
 
 func (c *l2cap) eventloop() error {
