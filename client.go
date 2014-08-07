@@ -38,7 +38,7 @@ type Client struct {
 
 	Advertisement func(device *DiscoveredDevice)
 
-	Rssi func(address string, rssi int8)
+	Rssi func(address string, name string, rssi int8)
 
 	devices map[string]*DiscoveredDevice
 
@@ -247,10 +247,6 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 		return fmt.Errorf("Failed to parse rssi: %s", fields[3])
 	}
 
-	if c.Rssi != nil {
-		c.Rssi(address, int8(rssi))
-	}
-
 	if c.devices == nil {
 		log.Printf("Initialising discovered devices")
 		c.devices = make(map[string]*DiscoveredDevice)
@@ -367,6 +363,10 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 		}
 
 		i += (length + 1)
+	}
+
+	if c.Rssi != nil {
+		c.Rssi(address, device.Advertisement.LocalName, int8(rssi))
 	}
 
 	device.discoveryCount += 1
