@@ -136,12 +136,14 @@ func (c *hci) close() error {
 // stopAdvertising sotps the advertising of the peripheral
 // but doesn't disconnects the current central
 func (c *hci) stopAdvertising() error {
+	fmt.Println("stopped advertising")
 	return c.shim.Signal(syscall.SIGHUP)
 }
 
 // restartAdvertising restarts the advertising of the peripheral
 // This work if advertising is disable or still running
 func (c *hci) restartAdvertising() error {
+	fmt.Println("restarted advertising")
 	return c.shim.Signal(syscall.SIGUSR1)
 }
 

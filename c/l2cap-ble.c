@@ -182,7 +182,7 @@ int main(int argc, const char* argv[]) {
               l2capSockBuf[i / 2] = data;
               i += 2;
             }
-
+	    memset(&stdinBuf[0], 0, sizeof(stdinBuf));
             len = write(clientL2capSock, l2capSockBuf, (len - 1) / 2);
           }
 

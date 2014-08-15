@@ -210,8 +210,8 @@ func (s *Server) DisconnectCentral() error {
 
 // StopAdvertisingAndDisconnect stops the advertising of the peripheral and disconnects the central
 func (s *Server) StopAdvertisingAndDisconnect() error {
+	//s.l2cap.disconnect()
 	s.hci.stopAdvertising()
-	s.l2cap.disconnect()
 	s.advertising = false
 	return nil
 }
