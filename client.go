@@ -346,10 +346,12 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 		case 0x12: // Slave Connection Interval Range
 
 		case 0x16: // Service Data, there can be multiple occurences
-			advertisement.ServiceData = append(advertisement.ServiceData, ServiceData{
-				Uuid: hex.EncodeToString(payload[0:2]),
-				Data: payload[3:],
-			})
+			if len(payload) > 2 {
+				advertisement.ServiceData = append(advertisement.ServiceData, ServiceData{
+					Uuid: hex.EncodeToString(payload[0:2]),
+					Data: payload[3:],
+				})
+			}
 
 		case 0x19: // Appearance
 
