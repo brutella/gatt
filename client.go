@@ -332,7 +332,13 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 			}
 
 			for j := 0; j < len(payload); j += uuidLength {
-				serviceUuid := hex.EncodeToString(payload[j : j+uuidLength])
+				uuid := payload[j : j+uuidLength]
+
+				for i, j := 0, len(uuid)-1; i < j; i, j = i+1, j-1 {
+					uuid[i], uuid[j] = uuid[j], uuid[i]
+				}
+
+				serviceUuid := hex.EncodeToString(uuid)
 				advertisement.ServiceUuids[serviceUuid] = true
 			}
 
