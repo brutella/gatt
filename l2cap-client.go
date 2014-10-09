@@ -110,7 +110,7 @@ func (c *l2capClient) eventloop() error {
 		err := c.scanner.Err()
 		s := c.scanner.Text()
 
-		//log.Printf("l2cap-client Received: %s", s)
+		// log.Printf("received: %s\n\n", s)
 
 		if err != nil {
 			//return err
@@ -119,9 +119,9 @@ func (c *l2capClient) eventloop() error {
 		f := strings.Fields(s)
 		switch f[0] {
 		case "bind":
-			log.Printf("Got bind event: %s", f[1])
+			// log.Printf("Got bind event: %s", f[1])
 		case "connect":
-			log.Printf("Got connect event: %s", f[1])
+			// log.Printf("Got connect event: %s", f[1])
 			if f[1] == "success" {
 				c.connected <- struct{}{}
 			}
@@ -134,13 +134,13 @@ func (c *l2capClient) eventloop() error {
 			if err != nil {
 				log.Fatalf("Failed to parse l2cap-client hex data event: %s", s)
 			}
-			//log.Println("Got data event")
+			// log.Println("Got data event")
 
 			commandId := data[0]
 
 			switch commandId {
 			case ATT_OP_HANDLE_NOTIFY, ATT_OP_HANDLE_IND:
-				//log.Print("It's a Notification!")
+				// log.Print("It's a Notification!")
 
 				var handle uint16
 				err := binary.Read(bytes.NewReader(data[1:3]), binary.LittleEndian, &handle)
@@ -154,7 +154,7 @@ func (c *l2capClient) eventloop() error {
 				}
 			default:
 				if c.currentCommand != nil {
-					log.Print("There is a current command waiting for a response: %s", c.currentCommand)
+					// log.Print("There is a current command waiting for a response: %s", c.currentCommand)
 					command := c.currentCommand
 					c.currentCommandComplete <- true
 					go command.callback(data)
@@ -179,13 +179,12 @@ func (c *l2capClient) commandLoop() error {
 		c.currentCommand = nil
 
 		command := <-c.commands
-
-		log.Printf("Got a command to send: %s", command.buffer)
+		log.Printf("write	: %X", command.buffer)
 
 		c.send(command.buffer)
 
 		if command.callback != nil {
-			log.Printf("Command has a callback... waiting for data") // XXX timeout?
+			// log.Printf("Command has a callback... waiting for data") // XXX timeout?
 			c.currentCommand = command
 			<-c.currentCommandComplete
 		}
@@ -240,7 +239,7 @@ func (c *l2capClient) discoverServices() {
 }
 
 func (c *l2capClient) queueCommand(command *l2capClientCommand) {
-	log.Print("Queuing command")
+	// log.Print("Queuing command % X", command.buffer)
 	c.commands <- command
 }
 
@@ -248,11 +247,11 @@ const GATT_CLIENT_CHARAC_CFG_UUID = 0x2902
 const ATT_OP_READ_BY_TYPE_RESP = 0x09
 
 func (c *l2capClient) notify(enable bool, startHandle uint16, endHandle uint16, useNotify bool, useIndicate bool) {
-
+	log.Printf("Calling notify: %t %d %d %t %t", enable, startHandle, endHandle, useNotify, useIndicate)
 	c.queueCommand(&l2capClientCommand{
 		buffer: makeReadByTypeRequest(startHandle, endHandle, GATT_CLIENT_CHARAC_CFG_UUID),
 		callback: func(data []byte) {
-			log.Printf("Got notify response %x", data)
+			// log.Printf("Got notify response %x", data)
 
 			type Response struct {
 				Opcode, DataType uint8
@@ -291,11 +290,12 @@ func (c *l2capClient) notify(enable bool, startHandle uint16, endHandle uint16, 
 				log.Fatalf("Notify binary.Write failed: %s", err)
 			}
 
+			log.Printf("making notify request %d --- % X", response.Handle, buf.Bytes())
 			c.queueCommand(&l2capClientCommand{
 				buffer: makeWriteRequest(response.Handle, buf.Bytes(), false),
 				callback: func(data []byte) {
-					log.Printf("Got notify final response %s", data)
-					spew.Dump(data)
+					// log.Printf("Got notify final response %s", data)
+					// spew.Dump(data)
 				},
 			})
 		},
@@ -307,12 +307,46 @@ func (c *l2capClient) send(b []byte) error {
 		panic(fmt.Errorf("cannot send %x: mtu %d", b, c.mtu))
 	}
 
-	log.Printf("L2CAP-client: Sending %x", b)
+	// log.Printf("L2CAP-client: Sending % X", b)
 	c.sendmu.Lock()
 	_, err := fmt.Fprintf(c.shim, "%x\n", b)
 	c.sendmu.Unlock()
 	return err
 }
+
+func (c *l2capClient) writeByHandle(handle uint16, data []byte) {
+	c.queueCommand(&l2capClientCommand{
+		buffer: makeWriteRequest(handle, data, false),
+		callback: func(data []byte) {
+			// log.Printf("Got writebyhandle final response %s", data)
+			// spew.Dump(data)
+		},
+	})
+}
+
+func (c *l2capClient) readByHandle(handle uint16) chan []byte {
+	response := make(chan []byte, 1)
+	// log.Printf("L2CAP-client: Queuing readByHandle %d", handle)
+	c.queueCommand(&l2capClientCommand{
+		buffer: makeReadRequest(handle),
+		callback: func(data []byte) {
+			response <- data
+		},
+	})
+	return response
+}
+
+// func (c *l2capClient) readByHandle(handle uint16, uuid uint16) chan []byte {
+// 	response := make(chan []byte, 1)
+// 	log.Printf("L2CAP-client: Queuing readByHandle %d", handle)
+// 	c.queueCommand(&l2capClientCommand{
+// 		buffer: makeReadByGroupRequest(handle, handle+1, uuid),
+// 		callback: func(data []byte) {
+// 			response <- data
+// 		},
+// 	})
+// 	return response
+// }
 
 /* Command Definitions XXX: Clean this up */
 
@@ -350,6 +384,19 @@ func makeReadByTypeRequest(startHandle uint16, endHandle uint16, groupUuid uint1
 	})
 }
 
+const readRequest uint8 = 0x0a
+
+type readRequestPacket struct {
+	handle uint16
+}
+
+func makeReadRequest(handle uint16) []byte {
+	// log.Printf("--makeReadRequest-- %d", handle)
+	return encodeCommand(readRequest, &readRequestPacket{
+		handle: handle,
+	})
+}
+
 const writeRequest = 0x12
 const writeCommand = 0x52
 
@@ -377,4 +424,33 @@ func encodeCommand(id uint8, command interface{}) []byte {
 
 func (c *l2capClient) disconnect() error {
 	return c.shim.Signal(syscall.SIGHUP)
+}
+
+//TODO kill asap
+func (c *l2capClient) SetupFlowerPower() {
+
+	strcmds := make([]string, 1)
+
+	strcmds[0] = "12390001"
+
+	bytecmds := make([][]byte, 1)
+	for i := range bytecmds {
+		bytecmds[i] = make([]byte, len(strcmds[i]))
+		bytes, err := hex.DecodeString(strcmds[i])
+		if err != nil {
+			log.Fatalf("Problem encoding to bytes ", strcmds[i])
+		}
+		bytecmds[i] = bytes
+	}
+
+	for _, cmd := range bytecmds {
+
+		c.queueCommand(&l2capClientCommand{
+			buffer: cmd,
+			callback: func(response []byte) {
+				log.Printf("		received: %s", response)
+			},
+		})
+
+	}
 }

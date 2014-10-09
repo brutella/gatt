@@ -255,7 +255,7 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 	device := c.devices[address]
 
 	if device == nil {
-		log.Printf("Discovered a new device: %s", address)
+		// log.Printf("Discovered a new device: %s", address)
 		device = &DiscoveredDevice{
 			Address:       address,
 			PublicAddress: publicAddress,
@@ -277,8 +277,6 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 
 		length := int(eir[i])
 		dataType := int(eir[i+1]) // https://www.bluetooth.org/en-us/specification/assigned-numbers/generic-access-profile
-
-		//log.Printf("Reading eir data length:%d type:%d from pos:%d", length, dataType, i)
 
 		if (i + length + 1) > len(eir) {
 			log.Printf("Invalid EIR data, out of range of buffer length")
@@ -404,4 +402,32 @@ func (s *Client) close(err error) {
 		s.err = err
 		close(s.quit)
 	})
+}
+
+func (c *Client) DiscoverServices(address string) {
+	// XXX: FIXME TODO check if this thing actually exists first
+}
+
+// func (c *l2capClient) writeByHandle(handle uint16, data []byte) {
+
+func (c *Client) WriteByHandle(address string, handle uint16, data []byte) {
+	c.devices[address].l2cap.writeByHandle(handle, data)
+	// XXX: FIXME TODO check if this thing actually exists first
+
+}
+
+func (c *Client) ReadByHandle(address string, handle uint16) chan []byte {
+	// XXX: FIXME TODO check if this thing actually exists first
+	if c.devices[address] != nil {
+		return c.devices[address].l2cap.readByHandle(handle)
+	} else {
+		log.Printf("Can't read by handle for address %s, address does not exist or not setup ", address)
+		return nil
+	}
+
+}
+
+//TODO kill asap
+func (c *Client) SetupFlowerPower(address string) {
+	c.devices[address].l2cap.SetupFlowerPower()
 }
