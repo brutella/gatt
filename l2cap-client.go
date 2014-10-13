@@ -179,7 +179,7 @@ func (c *l2capClient) commandLoop() error {
 		c.currentCommand = nil
 
 		command := <-c.commands
-		log.Printf("write	: %X", command.buffer)
+		// log.Printf("write	: %X", command.buffer)
 
 		c.send(command.buffer)
 
@@ -441,7 +441,7 @@ func (c *l2capClient) SendRawCommands(strcmds []string) {
 		c.queueCommand(&l2capClientCommand{
 			buffer: cmd,
 			callback: func(response []byte) {
-				log.Printf("		received: %s", response)
+				// log.Printf("		received: %s", response)
 			},
 		})
 	}
