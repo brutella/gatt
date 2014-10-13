@@ -126,7 +126,7 @@ func (c *l2capClient) eventloop() error {
 				c.connected <- struct{}{}
 			}
 		case "disconnect":
-			log.Printf("Got disconnect event")
+			// log.Printf("Got disconnect event")
 			c.close()
 			return nil
 		case "data":
@@ -423,35 +423,6 @@ func encodeCommand(id uint8, command interface{}) []byte {
 
 func (c *l2capClient) disconnect() error {
 	return c.shim.Signal(syscall.SIGHUP)
-}
-
-//TODO kill asap
-func (c *l2capClient) SetupFlowerPower() {
-
-	strcmds := make([]string, 1)
-
-	strcmds[0] = "12390001"
-
-	bytecmds := make([][]byte, 1)
-	for i := range bytecmds {
-		bytecmds[i] = make([]byte, len(strcmds[i]))
-		bytes, err := hex.DecodeString(strcmds[i])
-		if err != nil {
-			log.Fatalf("Problem encoding to bytes ", strcmds[i])
-		}
-		bytecmds[i] = bytes
-	}
-
-	for _, cmd := range bytecmds {
-
-		c.queueCommand(&l2capClientCommand{
-			buffer: cmd,
-			callback: func(response []byte) {
-				log.Printf("		received: %s", response)
-			},
-		})
-
-	}
 }
 
 func (c *l2capClient) SendRawCommands(strcmds []string) {
