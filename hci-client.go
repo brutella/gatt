@@ -28,7 +28,7 @@ func (c *hciClient) event() (string, string, error) {
 		if err != nil {
 			return "", "", err
 		}
-		//log.Print("hci:" + s)
+		// log.Print("hci:" + s)
 
 		f := strings.Fields(s)
 		if f[0] != "log" && len(f) != 2 {

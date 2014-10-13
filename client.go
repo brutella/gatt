@@ -431,3 +431,7 @@ func (c *Client) ReadByHandle(address string, handle uint16) chan []byte {
 func (c *Client) SetupFlowerPower(address string) {
 	c.devices[address].l2cap.SetupFlowerPower()
 }
+
+func (c *Client) SendRawCommands(address string, strcmds []string) {
+	c.devices[address].l2cap.SendRawCommands(strcmds)
+}

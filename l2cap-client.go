@@ -247,7 +247,7 @@ const GATT_CLIENT_CHARAC_CFG_UUID = 0x2902
 const ATT_OP_READ_BY_TYPE_RESP = 0x09
 
 func (c *l2capClient) notify(enable bool, startHandle uint16, endHandle uint16, useNotify bool, useIndicate bool) {
-	log.Printf("Calling notify: %t %d %d %t %t", enable, startHandle, endHandle, useNotify, useIndicate)
+	// log.Printf("Calling notify: %t %d %d %t %t", enable, startHandle, endHandle, useNotify, useIndicate)
 	c.queueCommand(&l2capClientCommand{
 		buffer: makeReadByTypeRequest(startHandle, endHandle, GATT_CLIENT_CHARAC_CFG_UUID),
 		callback: func(data []byte) {
@@ -290,7 +290,6 @@ func (c *l2capClient) notify(enable bool, startHandle uint16, endHandle uint16, 
 				log.Fatalf("Notify binary.Write failed: %s", err)
 			}
 
-			log.Printf("making notify request %d --- % X", response.Handle, buf.Bytes())
 			c.queueCommand(&l2capClientCommand{
 				buffer: makeWriteRequest(response.Handle, buf.Bytes(), false),
 				callback: func(data []byte) {
@@ -452,5 +451,27 @@ func (c *l2capClient) SetupFlowerPower() {
 			},
 		})
 
+	}
+}
+
+func (c *l2capClient) SendRawCommands(strcmds []string) {
+	bytecmds := make([][]byte, len(strcmds))
+	for i := range bytecmds {
+		bytecmds[i] = make([]byte, len(strcmds[i]))
+		bytes, err := hex.DecodeString(strcmds[i])
+		if err != nil {
+			log.Fatalf("Problem encoding to bytes ", strcmds[i])
+		}
+		bytecmds[i] = bytes
+	}
+
+	for _, cmd := range bytecmds {
+
+		c.queueCommand(&l2capClientCommand{
+			buffer: cmd,
+			callback: func(response []byte) {
+				log.Printf("		received: %s", response)
+			},
+		})
 	}
 }
