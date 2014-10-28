@@ -1,6 +1,8 @@
 package gatt
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -8,8 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"encoding/binary"
-	"encoding/hex"
 )
 
 // MaxEIRPacketLength is the maximum allowed AdvertisingPacket
@@ -91,9 +91,9 @@ type Server struct {
 
 	services []*Service
 
-	quitonce sync.Once
-	quit     chan struct{}
-	err      error
+	quitonce    sync.Once
+	quit        chan struct{}
+	err         error
 	advertising bool
 }
 
@@ -137,23 +137,21 @@ func (s *Server) AdvertiseiBeacon(uuid string, major uint16, minor uint16, measu
 		return err
 	}
 	uuidlength := len(uuidbyte)
-	ibeaconData := make([]byte, uuidlength + 5)
+	ibeaconData := make([]byte, uuidlength+5)
 	i := 0
-	for index,element := range uuidbyte {
+	for index, element := range uuidbyte {
 		i = index
 		ibeaconData[i] = element
 	}
-	
-	
+
 	binary.LittleEndian.PutUint16(ibeaconData[i+1:], uint16(major))
 	binary.LittleEndian.PutUint16(ibeaconData[i+3:], uint16(minor))
 	temp := make([]byte, 2)
 	binary.LittleEndian.PutUint16(temp, measuredPower)
-	ibeaconData[i+5] = temp[0]	
+	ibeaconData[i+5] = temp[0]
 	s.start()
 	return s.hci.advertiseiBeacon(ibeaconData)
 }
-
 
 // AdvertiseAndServe initializes the server with the given name, services and characteristics
 // It also starts the server and advertises it
@@ -309,14 +307,14 @@ func (s *Server) Close() error {
 	if errWait != nil {
 		println("Wait error: ", errWait)
 	}*/
-	
+
 	l2caperr := s.l2cap.close()
 	if err == nil {
 		err = l2caperr
 	}
-	
+
 	s.close(err)
-	
+
 	serverRunningMu.Lock()
 	serverRunning = false
 	serverRunningMu.Unlock()
@@ -354,7 +352,6 @@ type Conn interface {
 	// MTU returns the current connection mtu.
 	MTU() int
 }
-
 
 func (s *Server) close(err error) {
 	s.quitonce.Do(func() {

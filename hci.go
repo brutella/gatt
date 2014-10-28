@@ -2,11 +2,11 @@ package gatt
 
 import (
 	"bufio"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
 	"syscall"
-	"encoding/binary"
 )
 
 func newHCI(s shim) *hci {
@@ -65,32 +65,32 @@ func (c *hci) advertiseiBeacon(data []byte) error {
 	manufacturerDataLen := 6 + dataLen
 	advertisementDataLen := 3 + manufacturerDataLen
 	scanDataLen := 1
-	
+
 	advertisementData := make([]byte, advertisementDataLen)
-	
+
 	advertisementData[0] = 2
 	advertisementData[1] = 0x01
 	advertisementData[2] = 0x05
-	
+
 	//advertisementData[3] = manufacturerDataLen - 1
 	temp := make([]byte, 2)
-	binary.LittleEndian.PutUint16(temp, uint16(manufacturerDataLen - 1))
+	binary.LittleEndian.PutUint16(temp, uint16(manufacturerDataLen-1))
 	advertisementData[3] = temp[0]
 	advertisementData[4] = 0xff
-	
+
 	advertisementData[5] = 0x4c
 	advertisementData[6] = 0x00
 	advertisementData[7] = 0x02
 	binary.LittleEndian.PutUint16(temp, uint16(dataLen))
 	advertisementData[8] = temp[0]
 	//advertisementData[8] = dataLen
-	
+
 	for index, element := range data {
 		advertisementData[9+index] = element
 	}
-	
+
 	scanData := make([]byte, scanDataLen)
-	//scanData := []byte{0x12}	
+	//scanData := []byte{0x12}
 
 	return c.advertiseEIR(advertisementData, scanData)
 }

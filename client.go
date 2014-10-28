@@ -50,15 +50,15 @@ type Client struct {
 }
 
 type DiscoveredDevice struct {
-	Address        string
-	PublicAddress  bool
-	Rssi           int8
-	Advertisement  DeviceAdvertisement
-	published      bool
-	l2cap          *l2capClient
-	Connected      func()
-	Disconnected   func()
-	Notification   func(notification *Notification)
+	Address       string
+	PublicAddress bool
+	Rssi          int8
+	Advertisement DeviceAdvertisement
+	published     bool
+	l2cap         *l2capClient
+	Connected     func()
+	Disconnected  func()
+	Notification  func(notification *Notification)
 }
 
 type DeviceAdvertisement struct {
@@ -339,7 +339,7 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 
 		case 0x08, // Shortened Local Name
 			0x09: // Complete Local Name
-            advertisement.LocalName = string(payload)
+			advertisement.LocalName = string(payload)
 		case 0x0a: // Tx Power Level
 			advertisement.TxPowerLevel = int8(payload[0])
 
@@ -375,8 +375,8 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 		c.Advertisement(device)
 	}
 
-    if device.published == false  && c.Discover != nil {
-        device.published = true
+	if device.published == false && c.Discover != nil {
+		device.published = true
 		c.Discover(device)
 	}
 

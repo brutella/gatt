@@ -97,9 +97,9 @@ func (c *l2cap) close() error {
 	if waiterr != nil {
 		return waiterr
 	}
-	
+
 	c.serving = false
-	
+
 	return c.shim.Close()
 	//call c.quit when close signal of shim arrives
 	/*

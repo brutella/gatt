@@ -15,7 +15,7 @@ type testshim struct {
 func (t *testshim) Close() error           { return nil }
 func (t *testshim) Wait() error            { return nil }
 func (t *testshim) Signal(os.Signal) error { return nil }
-func (t *testshim) Interrupt() error	    { return nil }
+func (t *testshim) Interrupt() error       { return nil }
 
 func TestAdvertiseEIR(t *testing.T) {
 	cases := []struct {
