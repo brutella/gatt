@@ -31,6 +31,7 @@ func (t *testL2CShim) Write(b []byte) (int, error) {
 func (t *testL2CShim) Close() error           { return nil }
 func (t *testL2CShim) Wait() error            { return nil }
 func (t *testL2CShim) Signal(os.Signal) error { return nil }
+func (t *testL2CShim) Interrupt() error       { return nil }
 
 type testL2CapHandler struct {
 	l2c *l2cap
