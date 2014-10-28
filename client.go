@@ -54,7 +54,7 @@ type DiscoveredDevice struct {
 	PublicAddress  bool
 	Rssi           int8
 	Advertisement  DeviceAdvertisement
-	discoveryCount int
+	published      bool
 	l2cap          *l2capClient
 	Connected      func()
 	Disconnected   func()
@@ -233,9 +233,6 @@ func (s *Client) Close() error {
 func (c *Client) handleAdvertisingEvent(data string) error {
 
 	fields := strings.Split(data, ",")
-
-	//log.Printf("Advertising event! : %q", fields)
-
 	address := fields[0]
 	publicAddress := fields[1] == "public"
 	eir, err := hex.DecodeString(fields[2])
@@ -342,8 +339,7 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 
 		case 0x08, // Shortened Local Name
 			0x09: // Complete Local Name
-			advertisement.LocalName = string(payload)
-
+            advertisement.LocalName = string(payload)
 		case 0x0a: // Tx Power Level
 			advertisement.TxPowerLevel = int8(payload[0])
 
@@ -375,13 +371,12 @@ func (c *Client) handleAdvertisingEvent(data string) error {
 		c.Rssi(address, device.Advertisement.LocalName, int8(rssi))
 	}
 
-	device.discoveryCount += 1
-
-	if c.Advertisement != nil && device.discoveryCount%2 == 0 {
+	if c.Advertisement != nil {
 		c.Advertisement(device)
 	}
 
-	if c.Discover != nil && device.discoveryCount == 2 {
+    if device.published == false  && c.Discover != nil {
+        device.published = true
 		c.Discover(device)
 	}
 
