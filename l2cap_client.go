@@ -211,29 +211,7 @@ func (c *l2capClient) discoverServices() {
 
 				log.Printf("dataType:%x number of services:%d", dataType, num)
 				log.Printf("TODO: Parse the rest")
-
-				/*for (i = 0; i < num; i++) {
-				  services.push({
-				    startHandle: data.readUInt16LE(2 + i * dataType + 0),
-				    endHandle: data.readUInt16LE(2 + i * dataType + 2),
-				    uuid: (dataType == 6) ? data.readUInt16LE(2 + i * dataType + 4).toString(16) : data.slice(2 + i * dataType + 4).slice(0, 16).toString('hex').match(/.{1,2}/g).reverse().join('')
-				  });
-				}*/
 			}
-
-			/*if (opcode !== ATT_OP_READ_BY_GROUP_RESP || services[services.length - 1].endHandle === 0xffff) {
-			    var serviceUuids = [];
-			    for (i = 0; i < services.length; i++) {
-			      if (uuids.length === 0 || uuids.indexOf(services[i].uuid) !== -1) {
-			        serviceUuids.push(services[i].uuid);
-			      }
-
-			      this._services[services[i].uuid] = services[i];
-			    }
-			    this.emit('servicesDiscover', this._address, serviceUuids);
-			  } else {
-			    this._queueCommand(this.readByGroupRequest(services[services.length - 1].endHandle + 1, 0xffff, GATT_PRIM_SVC_UUID), callback);
-			  }*/
 		},
 	})
 }
@@ -334,18 +312,6 @@ func (c *l2capClient) readByHandle(handle uint16) chan []byte {
 	})
 	return response
 }
-
-// func (c *l2capClient) readByHandle(handle uint16, uuid uint16) chan []byte {
-// 	response := make(chan []byte, 1)
-// 	log.Printf("L2CAP-client: Queuing readByHandle %d", handle)
-// 	c.queueCommand(&l2capClientCommand{
-// 		buffer: makeReadByGroupRequest(handle, handle+1, uuid),
-// 		callback: func(data []byte) {
-// 			response <- data
-// 		},
-// 	})
-// 	return response
-// }
 
 /* Command Definitions XXX: Clean this up */
 

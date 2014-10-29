@@ -140,13 +140,6 @@ func (s *Client) Start() error {
 		}()
 	}
 
-	/*	l2capShim, err := newCShim("l2cap-ble", hciDevice)
-		if err != nil {
-			s.close(err)
-			return err
-		}
-
-		s.l2cap = newL2cap(l2capShim)*/
 	return nil
 }
 
@@ -189,26 +182,7 @@ func (c *Client) Connect(address string, publicAddress bool) error {
 			}
 		}
 	}()
-	/*go func() {
-		for {
-			// No need to check s.quit here; if the users closes the server,
-			// hci will get killed, which'll cause an error to be returned here.
-			event, data, err := c.hci.event()
-			log.Printf("l2capevent: %s data: %s err:%s", event, data, err)
-			if err != nil {
-				break
-			}
 
-			if event == "adapterState" && c.StateChange != nil {
-				c.StateChange(data)
-			} else if event == "event" {
-				c.handleAdvertisingEvent(data)
-			}
-		}
-		c.close(err)
-	}()*/
-
-	//spew.Dump(l2cap)
 	return nil
 }
 
@@ -219,14 +193,8 @@ func (s *Client) Close() error {
 	}
 	err := s.hci.Close()
 	s.hci.Wait()
-	/*l2caperr := s.l2cap.close()
-	if err == nil {
-		err = l2caperr
-	}*/
 	s.close(err)
-	//serverRunningMu.Lock()
-	//serverRunning = false
-	//serverRunningMu.Unlock()
+
 	return err
 }
 
